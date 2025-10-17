@@ -18,7 +18,11 @@ getGitHubToken() {
   fi
 }
 
-TOKEN=$(getGitHubToken github_com)
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  TOKEN=$(getGitHubToken github_com)
+else
+  TOKEN=${GITHUB_TOKEN}
+fi
 test "$TOKEN" #fail fast
 echo Token accepted
 

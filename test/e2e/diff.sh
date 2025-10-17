@@ -47,6 +47,7 @@ pushd "$docforge_repo_path"
 cp "VERSION" "VERSION_PR" 
 git checkout -- "VERSION"
 current_branch=$(git branch --show-current)
+git fetch origin master # needed if repository is only checkout partially (e.g. on GitHub-Actions)
 git checkout master
 popd
 buildWebsite

@@ -1,0 +1,167 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        default: snapshot
+        description: |
+          the mode to use. either `snapshot` or `release`. Will affect effective version, as well
+          as target-oci-registry.
+
+jobs:
+  prepare:
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    with:
+      mode: ${{ inputs.mode }}
+      version-commit-callback-action-path:
+    permissions:
+      contents: read
+
+  build:
+    needs:
+      - prepare
+    runs-on: ${{ matrix.args.runner }}
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        args:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: darwin
+            arch: amd64
+            runner: ubuntu-latest
+          - os: darwin
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: windows
+            arch: '386'
+            runner: ubuntu-latest
+    steps:
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.22'
+      - name: build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/blobs.d
+
+          out=docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
+          ver='${{ needs.prepare.outputs.version }}'
+          if ${{ matrix.args.os == 'windows' }}; then
+            out="$out.exe"
+          fi
+
+          CGO_ENABLED=0 \
+          GOOS=${{ matrix.args.os }} \
+          GOARCH=${{ matrix.args.arch }} \
+            go build \
+              -a \
+              -v \
+              -o ${out} \
+              -ldflags "-w -X github.com/gardener/docforce/cmd/version.Version=${ver}" \
+              cmd/*.go
+
+          tar_out=/tmp/blobs.d/docforge.tar.gz
+
+          tar czf $tar_out $out
+
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          blobs-directory: /tmp/blobs.d
+          ocm-resources: |
+            name: docforge
+            relation: local
+            type: executable
+            extraIdentity:
+              os: ${{ matrix.args.os }}
+              architecture: ${{ matrix.args.arch }}
+            access:
+              type: localBlob
+              localReference: docforge.tar.gz
+
+      # expose for oci-image-build
+      # we could also import the ocm-fragment; however, using an explicit artefact will require
+      # less code, and less redundant downloads
+      - uses: gardener/cc-utils/.github/actions/upload-artifact@master
+        if: ${{ matrix.args.os == 'linux' }} # oci-images are only built for linux
+        with:
+          name: docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
+          path: /tmp/blobs.d/docforge.tar.gz
+
+  oci-images:
+    name: Build OCI-Images
+    needs:
+      - prepare
+      - build
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    secrets: inherit
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    strategy:
+      matrix:
+        args:
+          - name: docforge
+            target:
+            oci-repository: docforge
+    with:
+      name: ${{ matrix.args.name }}
+      version: ${{ needs.prepare.outputs.version }}
+      target: ${{ matrix.args.target }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.oci-repository }}
+      oci-platforms: linux/amd64,linux/arm64
+      extra-tags: latest
+      build-ctx-artefact: |
+        linux/amd64: docforge-linux-amd64
+        linux/arm64: docforge-linux-arm64
+      prebuild-hook: |
+        set -euo pipefail
+        mkdir -p bin/rel
+        ls
+        tar xf docforge.tar.gz -C bin/rel
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        args:
+          - run: .ci/check
+          - run: .ci/test
+          - run: .ci/e2e
+          - run: .ci/integration-test
+    steps:
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.22'
+      - if: matrix.args.run == '.ci/e2e' || matrix.args.run == '.ci/integration-test'
+        id: token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.GARDENER_GITHUB_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
+          owner: gardener
+      - shell: bash
+        run: |
+          set -euo pipefail
+          if ${{ matrix.args.run == '.ci/e2e' }}; then
+            export GITHUB_TOKEN=${{ steps.token.outputs.token }}
+          elif ${{ matrix.args.run == '.ci/integration-test' }}; then
+            export GITHUB_OAUTH_TOKEN=${{ steps.token.outputs.token }}
+          fi
+          ${{ matrix.args.run }}
