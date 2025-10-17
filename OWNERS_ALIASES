@@ -1,0 +1,11 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  docforge-reviewers:
+  - dimitar-kostadinov
+  - Kostov6
+  - RadaBDimitrova
+  docforge-approvers:
+  - dimitar-kostadinov
+  - Kostov6
+  - RadaBDimitrova
