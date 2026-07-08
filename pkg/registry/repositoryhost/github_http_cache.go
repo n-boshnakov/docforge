@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -118,6 +119,7 @@ func (p *ghc) Tree(r URL) ([]string, error) {
 			out = append(out, strings.TrimPrefix(url, filterString))
 		}
 	}
+	sort.Strings(out)
 	return out, nil
 }
 
