@@ -12,27 +12,27 @@ import (
 
 func TestCleanDestination(t *testing.T) {
 	tests := []struct {
-		name            string
-		clean           bool
-		dryRun          bool
-		destination     string
-		setupFiles      []string
-		wantErr         string
-		wantFilesGone   bool
+		name          string
+		clean         bool
+		dryRun        bool
+		destination   string
+		setupFiles    []string
+		wantErr       string
+		wantFilesGone bool
 	}{
 		{
-			name:        "clean=false: destination left untouched",
-			clean:       false,
-			destination: t.TempDir(),
-			setupFiles:  []string{"stale.md"},
+			name:          "clean=false: destination left untouched",
+			clean:         false,
+			destination:   t.TempDir(),
+			setupFiles:    []string{"stale.md"},
 			wantFilesGone: false,
 		},
 		{
-			name:        "dry-run: destination left untouched even when clean=true",
-			clean:       true,
-			dryRun:      true,
-			destination: t.TempDir(),
-			setupFiles:  []string{"stale.md"},
+			name:          "dry-run: destination left untouched even when clean=true",
+			clean:         true,
+			dryRun:        true,
+			destination:   t.TempDir(),
+			setupFiles:    []string{"stale.md"},
 			wantFilesGone: false,
 		},
 		{
