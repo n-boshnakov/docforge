@@ -37,6 +37,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	_ = vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
 
+	command.Flags().Bool("clean-destination", false,
+		"Remove the destination directory before writing. Ignored when --dry-run is set.")
+	_ = vip.BindPFlag("clean-destination", command.Flags().Lookup("clean-destination"))
+
 	command.Flags().Int("document-workers", 25,
 		"Number of parallel workers for document processing.")
 	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))

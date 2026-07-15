@@ -7,6 +7,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -54,6 +55,11 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	}
 
 	config := getReactorConfig(options.Options, options.Hugo, rhs)
+
+	if err := cleanDestination(config.CleanDestination, config.DryRun, config.DestinationPath); err != nil {
+		return err
+	}
+
 	manifestURL := options.ManifestPath
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
@@ -102,5 +108,18 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	// Stage 2 ...
 
 	rhRegistry.LogRateLimits(ctx)
+	return nil
+}
+
+func cleanDestination(clean, dryRun bool, destinationPath string) error {
+	if !clean || dryRun {
+		return nil
+	}
+	if destinationPath == "" {
+		return fmt.Errorf("--clean-destination requires --destination to be set")
+	}
+	if err := os.RemoveAll(destinationPath); err != nil {
+		return fmt.Errorf("failed to clean destination %q: %w", destinationPath, err)
+	}
 	return nil
 }

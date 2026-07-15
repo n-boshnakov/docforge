@@ -20,6 +20,7 @@ type Options struct {
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
 	DryRun                       bool     `mapstructure:"dry-run"`
+	CleanDestination             bool     `mapstructure:"clean-destination"`
 	ContentFileFormats           []string `mapstructure:"content-files-formats"`
 }
 
